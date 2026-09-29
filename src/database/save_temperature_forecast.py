@@ -1,3 +1,4 @@
+﻿import os
 import sys
 from pathlib import Path
 
@@ -9,8 +10,12 @@ from sqlalchemy import create_engine, text
 # DATABASE
 # --------------------------------------------------
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 engine = create_engine(DATABASE_URL)
 
 
@@ -76,8 +81,9 @@ print(
 print(
     "Predicted temperature:",
     predicted_temperature,
-    "°C"
+    "Â°C"
 )
+import os
 import sys
 from pathlib import Path
 
@@ -110,8 +116,12 @@ LONGITUDE = 80.9462
 # DATABASE
 # --------------------------------------------------
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 engine = create_engine(DATABASE_URL)
 
 
@@ -246,7 +256,7 @@ print(
 print(
     "Predicted temperature:",
     round(predicted_temperature, 2),
-    "°C"
+    "Â°C"
 )
 
 

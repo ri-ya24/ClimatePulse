@@ -1,12 +1,18 @@
+﻿import os
 import sys
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine
-
+
+from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 print("Connecting to PostgreSQL...")
 
 engine = create_engine(DATABASE_URL)
@@ -107,7 +113,7 @@ df["extreme_heat_day"] = (
 print("\nExtreme Heat Analysis")
 print("---------------------")
 print("95th percentile threshold:",
-      round(heat_threshold, 2), "°C")
+      round(heat_threshold, 2), "Â°C")
 
 print("Extreme heat days:",
       df["extreme_heat_day"].sum())

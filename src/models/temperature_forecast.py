@@ -1,13 +1,19 @@
+﻿import os
 import sys
 from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import create_engine
-
+
+from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 print("Connecting to PostgreSQL...")
 
 engine = create_engine(DATABASE_URL)
@@ -246,9 +252,9 @@ r2 = r2_score(
 print("\nXGBoost Model Performance")
 print("-------------------------")
 
-print("MAE :", round(mae, 3), "°C")
-print("RMSE:", round(rmse, 3), "°C")
-print("R²  :", round(r2, 3))
+print("MAE :", round(mae, 3), "Â°C")
+print("RMSE:", round(rmse, 3), "Â°C")
+print("RÂ²  :", round(r2, 3))
 # --------------------------------------------------
 # NAIVE BASELINE
 # --------------------------------------------------
@@ -277,9 +283,9 @@ naive_r2 = r2_score(
     naive_predictions
 )
 
-print("Naive Baseline MAE :", round(naive_mae, 3), "°C")
-print("Naive Baseline RMSE:", round(naive_rmse, 3), "°C")
-print("Naive Baseline R²  :", round(naive_r2, 3))
+print("Naive Baseline MAE :", round(naive_mae, 3), "Â°C")
+print("Naive Baseline RMSE:", round(naive_rmse, 3), "Â°C")
+print("Naive Baseline RÂ²  :", round(naive_r2, 3))
 
 
 # --------------------------------------------------
@@ -292,13 +298,13 @@ print("----------------")
 print(
     "XGBoost MAE :",
     round(mae, 3),
-    "°C"
+    "Â°C"
 )
 
 print(
     "Naive MAE   :",
     round(naive_mae, 3),
-    "°C"
+    "Â°C"
 )
 
 improvement = (
@@ -334,7 +340,7 @@ print(
 print(
     "Predicted next-day temperature:",
     round(next_day_prediction, 2),
-    "°C"
+    "Â°C"
 )
 # --------------------------------------------------
 # SAVE TRAINED MODEL

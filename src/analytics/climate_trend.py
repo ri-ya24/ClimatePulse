@@ -1,12 +1,18 @@
+﻿import os
 import sys
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine
-
+
+from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 print("Connecting to PostgreSQL...")
 
 engine = create_engine(DATABASE_URL)
@@ -65,8 +71,8 @@ trend_per_decade = trend_slope * 10
 
 print("\nTemperature Trend")
 print("-----------------")
-print("Trend:", round(trend_slope, 4), "°C per year")
-print("Trend:", round(trend_per_decade, 4), "°C per decade")
+print("Trend:", round(trend_slope, 4), "Â°C per year")
+print("Trend:", round(trend_per_decade, 4), "Â°C per decade")
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(10, 5))
@@ -89,10 +95,11 @@ plt.plot(
 )
 
 plt.xlabel("Year")
-plt.ylabel("Temperature (°C)")
-plt.title("Lucknow Annual Mean Temperature Trend (1990–2025)")
+plt.ylabel("Temperature (Â°C)")
+plt.title("Lucknow Annual Mean Temperature Trend (1990â€“2025)")
 plt.legend()
 plt.grid(True)
 
 plt.tight_layout()
 plt.show()
+

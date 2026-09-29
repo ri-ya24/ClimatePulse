@@ -1,9 +1,13 @@
-import pandas as pd
+﻿import pandas as pd
 import requests
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 LATITUDE = 26.8467
 LONGITUDE = 80.9462
 
@@ -79,25 +83,25 @@ print(
 print(
     "Predicted temperature:",
     round(predicted_temperature, 2),
-    "°C"
+    "Â°C"
 )
 
 print(
     "Actual temperature:",
     round(actual_temperature, 2),
-    "°C"
+    "Â°C"
 )
 
 print(
     "Prediction error:",
     round(prediction_error, 2),
-    "°C"
+    "Â°C"
 )
 
 print(
     "Absolute error:",
     round(absolute_error, 2),
-    "°C"
+    "Â°C"
 )
 
 

@@ -1,8 +1,11 @@
 import sys
 from pathlib import Path
+import os
 
 import pandas as pd
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
+
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -11,7 +14,15 @@ from ingestion.historical_weather_api import (
     clean_historical_weather
 )
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+
+# Load environment variables
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
+
 
 print("Fetching historical weather data...")
 

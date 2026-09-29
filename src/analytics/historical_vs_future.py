@@ -1,10 +1,15 @@
-import pandas as pd
-from sqlalchemy import create_engine
+﻿import pandas as pd
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
 from sklearn.linear_model import LinearRegression
 
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 engine = create_engine(DATABASE_URL)
 
 
@@ -180,32 +185,32 @@ print(
 print("\nHistorical average temperature:")
 print(
     round(historical_average, 2),
-    "°C"
+    "Â°C"
 )
 
 print("\nProjected average temperature:")
 print(
     round(future_average, 2),
-    "°C"
+    "Â°C"
 )
 
 print("\nAverage difference:")
 print(
     round(average_difference, 2),
-    "°C"
+    "Â°C"
 )
 
 
 print("\nHistorical trend:")
 print(
     round(historical_trend, 4),
-    "°C per decade"
+    "Â°C per decade"
 )
 
 print("\nProjected trend:")
 print(
     round(future_trend, 4),
-    "°C per decade"
+    "Â°C per decade"
 )
 
 
@@ -220,7 +225,7 @@ print(
         historical_annual["mean_temperature"].max(),
         2
     ),
-    "°C"
+    "Â°C"
 )
 
 
@@ -235,5 +240,5 @@ print(
         future_annual["mean_temperature"].max(),
         2
     ),
-    "°C"
+    "Â°C"
 )

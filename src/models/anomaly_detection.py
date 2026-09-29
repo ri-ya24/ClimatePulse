@@ -1,14 +1,20 @@
+﻿import os
 import sys
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
 from sklearn.ensemble import IsolationForest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 engine = create_engine(DATABASE_URL)
 
 

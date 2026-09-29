@@ -1,12 +1,18 @@
+﻿import os
 import sys
 from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine
-
+
+from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-DATABASE_URL = "postgresql+psycopg2://postgres:2417@localhost:5432/climatepulse"
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in the environment.")
 engine = create_engine(DATABASE_URL)
 
 # Get latest live weather
@@ -61,9 +67,9 @@ temperature_anomaly = current_temperature - today_baseline
 
 print("\nCurrent Climate Analysis")
 print("------------------------")
-print("Current temperature:", current_temperature, "°C")
-print("Historical normal:", round(today_baseline, 2), "°C")
-print("Temperature anomaly:", round(temperature_anomaly, 2), "°C")
+print("Current temperature:", current_temperature, "Â°C")
+print("Historical normal:", round(today_baseline, 2), "Â°C")
+print("Temperature anomaly:", round(temperature_anomaly, 2), "Â°C")
 # Historical rainfall baseline
 rainfall_baseline = (
     historical_df
