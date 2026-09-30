@@ -8,18 +8,41 @@ from dotenv import load_dotenv
 import plotly.express as px
 import plotly.graph_objects as go
 import os
-
-load_dotenv()
 from google import genai
 
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-def generate_ai_climate_insight(prompt):
-    response = gemini_client.models.generate_content(
-       model="gemini-3.8-flash",
-        contents=prompt,
-    )
-    return response.text
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+if GEMINI_API_KEY:
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    gemini_client = None
+def generate_ai_climate_insight(prompt):
+    # ✅ Check client exists
+    if gemini_client is None:
+        return "⚠️ Gemini API key not found. Please check .env file."
+    
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-3.5-flash-lite",
+            contents=prompt,
+        )
+        return response.text
+
+    except Exception as e:
+        error_str = str(e)
+
+        if "503" in error_str or "UNAVAILABLE" in error_str:
+            return "⚠️ Gemini is busy. Please try again in a moment."
+
+        elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            return "⚠️ API quota reached. Try again after some time."
+
+        elif "401" in error_str or "API_KEY" in error_str:
+            return "⚠️ API key issue. Please check your .env file."
+
+        else:
+            return f"⚠️ Could not generate insight: {error_str}"
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "src"))
 
@@ -394,80 +417,109 @@ m3.metric("95th Percentile Max", f'{sel_sum["95th Percentile Max °C"]:.2f} °C'
 st.header(f"🔥 Extreme Events & Climate Anomalies — {selected_city}")
 
 anom = anomaly_table(historical)
+
 sel_anom = anom[anom["City"] == selected_city].copy()
 
 ec1, ec2, ec3 = st.columns(3)
-ec1.metric("Historical Observations", f'{len(historical[historical["City"] == selected_city]):,}')
-ec2.metric("Detected Anomalies", f'{len(sel_anom):,}')
+
+ec1.metric(
+    "Historical Observations",
+    f'{len(historical[historical["City"] == selected_city]):,}'
+)
+
+ec2.metric(
+    "Detected Anomalies",
+    f'{len(sel_anom):,}'
+)
+
+total_obs = len(historical[historical["City"] == selected_city])
+
+anomaly_rate = (
+    len(sel_anom) / max(total_obs, 1) * 100
+)
+
 ec3.metric(
     "Anomaly Rate",
-    f'{(len(sel_anom) / max(len(historical[historical["City"] == selected_city]), 1) * 100):.2f}%'
+    f"{anomaly_rate:.2f}%"
 )
 
 if len(sel_anom):
+
     st.dataframe(
-        sel_anom[[
-            "date", "temp_mean", "precipitation",
-            "wind_max", "Anomaly Score"
-        ]].head(20),
+        sel_anom[
+            [
+                "date",
+                "temp_mean",
+                "precipitation",
+                "wind_max",
+                "Anomaly Score",
+            ]
+        ].head(20),
         use_container_width=True,
         hide_index=True,
     )
 
-st.caption("Anomalies are statistical outliers detected from temperature, precipitation and wind; they are not automatically climate-change events.")
+    st.subheader("🤖 AI Anomaly Explainer")
 
-# -------------------- HISTORICAL VS FUTURE --------------------
-st.header(f"🔮 Historical vs Future Climate — {selected_city}")
+    selected_anomaly = st.selectbox(
+        "Select an anomaly to explain",
+        sel_anom.index,
+        format_func=lambda i: (
+            f'{sel_anom.loc[i, "date"].date()} — '
+            f'Anomaly Score: '
+            f'{sel_anom.loc[i, "Anomaly Score"]:.2f}'
+        ),
+    )
 
-fv = future_summary(historical, future)
-sel_fv = fv[fv["City"] == selected_city].iloc[0]
+    if st.button("Why is this unusual?"):
 
-f1, f2, f3 = st.columns(3)
-f1.metric("Historical Average", f'{sel_fv["Historical Average"]:.2f} °C')
-f2.metric("Projected Average", f'{sel_fv["Projected Average"]:.2f} °C')
-f3.metric("Average Difference", f'{sel_fv["Average Difference"]:+.2f} °C')
+        row = sel_anom.loc[selected_anomaly]
 
-st.caption("Historical values use 1990–2025 reanalysis data. Future values use an EC-Earth3P-HR climate-model projection and are not certain future observations.")
+        with st.spinner("Analysing this anomaly..."):
 
-compare_plot = pd.DataFrame({
-    "Period": ["Historical (1990–2025)", "Projected (2026–2049)"],
-    "Average Temperature": [
-        sel_fv["Historical Average"],
-        sel_fv["Projected Average"],
-    ],
-})
-fig = px.bar(
-    compare_plot,
-    x="Period",
-    y="Average Temperature",
-    text_auto=".2f",
-    title=f"Historical vs Projected Average — {selected_city}",
-    labels={"Average Temperature": "Temperature (°C)"},
+            prompt = f"""
+You are a climate data analyst explaining a statistical anomaly
+detected in a climate dashboard.
+
+City: {selected_city}
+Date: {row["date"].date()}
+
+Observed values:
+Temperature: {row["temp_mean"]:.2f} °C
+Precipitation: {row["precipitation"]:.2f} mm
+Maximum Wind Speed: {row["wind_max"]:.2f}
+
+Anomaly Score: {row["Anomaly Score"]:.2f}
+
+The anomaly was detected because the combined standardized
+deviation of temperature, precipitation and wind was at least
+2.0.
+
+Explain in simple language:
+
+1. What makes this observation unusual compared with the
+historical conditions of this city.
+
+2. Which of the three variables appears most unusual.
+
+3. What this combination of conditions could indicate.
+
+Important:
+- Do not invent data.
+- Do not claim that this anomaly proves climate change.
+- Clearly distinguish a statistical anomaly from a climate-change event.
+- Keep the explanation concise and suitable for a dashboard.
+"""
+
+            insight = generate_ai_climate_insight(prompt)
+
+            st.markdown(insight)
+
+st.caption(
+    "Anomalies are statistical outliers detected from temperature, "
+    "precipitation and wind; they are not automatically "
+    "climate-change events."
 )
-st.plotly_chart(fig, use_container_width=True)
-
-# -------------------- FUTURE PROJECTION --------------------
-st.header(f"🌡️ Future Climate Projection — {selected_city}")
-
-future_city = future[future["City"] == selected_city].copy()
-future_annual = (
-    future_city.assign(Year=future_city["date"].dt.year)
-    .groupby("Year")["temp_mean"]
-    .mean()
-    .reset_index()
-)
-
-fig = px.line(
-    future_annual,
-    x="Year",
-    y="temp_mean",
-    markers=True,
-    title=f"Projected Annual Mean Temperature — {selected_city}",
-    labels={"temp_mean": "Projected Mean Temperature (°C)"},
-)
-st.plotly_chart(fig, use_container_width=True)
-
-st.caption("Projection is model-based and should not be interpreted as a guaranteed future observation.")
 
 # -------------------- CLIMATE IMPACT INDEX --------------------
 st.header("🌍 Climate Impact Index")
@@ -655,14 +707,26 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.subheader("📊 Historical & Future City Summary")
 
+fv = future_summary(historical, future)
+
 city_summary = summary.merge(
-    fv[["City", "Projected Average", "Average Difference", "Projected Trend °C/decade"]],
+    fv[
+        [
+            "City",
+            "Projected Average",
+            "Average Difference",
+            "Projected Trend °C/decade",
+        ]
+    ],
     on="City",
     how="left",
 )
 
 st.dataframe(
-    city_summary.sort_values("Average Difference", ascending=False),
+    city_summary.sort_values(
+        "Average Difference",
+        ascending=False
+    ),
     use_container_width=True,
     hide_index=True,
 )
@@ -673,8 +737,12 @@ fig = px.bar(
     y="City",
     orientation="h",
     title="Historical-to-Projected Average Temperature Difference",
-    labels={"Average Difference": "Projected − Historical (°C)"},
+    labels={
+        "Average Difference": "Projected − Historical (°C)"
+    },
 )
-st.plotly_chart(fig, use_container_width=True)
 
-
+st.plotly_chart(
+    fig,
+    use_container_width=True,
+)
