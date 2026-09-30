@@ -1,12 +1,24 @@
 import sys
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
+from dotenv import load_dotenv
 import plotly.express as px
 import plotly.graph_objects as go
+import os
+
+load_dotenv()
+from google import genai
+
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+def generate_ai_climate_insight(prompt):
+    response = gemini_client.models.generate_content(
+       model="gemini-3.8-flash",
+        contents=prompt,
+    )
+    return response.text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "src"))
@@ -464,6 +476,7 @@ impact = climate_impact_by_city(live_raw, historical)
 sel_impact = impact[impact["City"] == selected_city].iloc[0]
 
 i1, i2, i3, i4, i5 = st.columns(5)
+
 i1.metric("Heat", f'{sel_impact["Heat Impact"]:.2f}/100')
 i2.metric("Rainfall", f'{sel_impact["Rainfall Deviation Impact"]:.2f}/100')
 i3.metric("Air Quality", f'{sel_impact["Air Quality Impact"]:.2f}/100')
@@ -474,6 +487,43 @@ st.caption(
     "Project-defined analytical index using heat, rainfall deviation, air quality and dryness. "
     "It is not an official government or scientific climate-risk index."
 )
+
+st.subheader("🤖 AI Climate Insight")
+
+if st.button("Generate AI Climate Insight"):
+
+    with st.spinner("Analysing climate conditions..."):
+
+        prompt = f"""
+You are a climate data analyst helping explain a climate dashboard.
+
+City: {selected_city}
+
+Project-defined climate indicators:
+Heat Impact: {sel_impact["Heat Impact"]:.2f}/100
+Rainfall Deviation Impact: {sel_impact["Rainfall Deviation Impact"]:.2f}/100
+Air Quality Impact: {sel_impact["Air Quality Impact"]:.2f}/100
+Dryness Impact: {sel_impact["Dryness Impact"]:.2f}/100
+Overall Climate Impact Index: {sel_impact["Climate Impact Index"]:.2f}/100
+
+Explain these results in simple language.
+
+Cover:
+1. What the overall Climate Impact Index represents.
+2. Which factors are contributing most to the current index.
+3. What the heat, rainfall, air-quality and dryness values indicate.
+4. What these conditions could mean for people and the local environment.
+
+Important:
+- Do not invent any data.
+- Do not claim that one day's weather proves climate change.
+- Clearly describe the Climate Impact Index as a project-defined analytical index.
+- Keep the explanation concise and suitable for a dashboard.
+"""
+
+        insight = generate_ai_climate_insight(prompt)
+
+        st.markdown(insight)
 
 # -------------------- ML FORECAST --------------------
 st.header(f"🤖 ML Temperature Forecast — {selected_city}")
@@ -626,7 +676,5 @@ fig = px.bar(
     labels={"Average Difference": "Projected − Historical (°C)"},
 )
 st.plotly_chart(fig, use_container_width=True)
-
-
 
 

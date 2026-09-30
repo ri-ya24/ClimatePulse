@@ -15,7 +15,6 @@ from ingestion.climate_projection_api import (
 )
 
 
-# Load environment variables
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -30,6 +29,9 @@ climate_data = get_climate_projection()
 df = clean_climate_projection(climate_data)
 
 print("Rows fetched:", len(df))
+print("Models:", df["model"].nunique())
+print("Date range:", df["date"].min().date(), "to", df["date"].max().date())
+
 
 print("\nConnecting to PostgreSQL...")
 
@@ -42,6 +44,8 @@ df.to_sql(
     index=False
 )
 
+
 print("\nClimate projection successfully stored!")
 print("Table: climate_projection")
 print("Rows:", len(df))
+print("Models:", df["model"].nunique())

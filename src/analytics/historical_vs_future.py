@@ -1,5 +1,7 @@
-﻿import pandas as pd
-from sqlalchemy import create_engine
+﻿import os
+import pandas as pd
+from sqlalchemy import create_engine
+
 from dotenv import load_dotenv
 from sklearn.linear_model import LinearRegression
 
@@ -10,6 +12,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in the environment.")
+
 engine = create_engine(DATABASE_URL)
 
 
@@ -30,10 +33,7 @@ historical = pd.read_sql(
     engine
 )
 
-historical["date"] = pd.to_datetime(
-    historical["date"]
-)
-
+historical["date"] = pd.to_datetime(historical["date"])
 historical["year"] = historical["date"].dt.year
 
 
@@ -57,9 +57,10 @@ historical_annual = (
 future_query = """
 SELECT
     date,
+    model,
     temperature_mean
 FROM climate_projection
-ORDER BY date;
+ORDER BY date, model;
 """
 
 future = pd.read_sql(
@@ -67,39 +68,41 @@ future = pd.read_sql(
     engine
 )
 
-future["date"] = pd.to_datetime(
-    future["date"]
-)
-
+future["date"] = pd.to_datetime(future["date"])
 future["year"] = future["date"].dt.year
 
 
-future_annual = (
+# --------------------------------------------------
+# MODEL-LEVEL YEARLY AGGREGATION
+# --------------------------------------------------
+
+future_model_annual = (
     future
-    .groupby("year")["temperature_mean"]
+    .groupby(["year", "model"])["temperature_mean"]
     .mean()
     .reset_index()
-    .rename(
-        columns={
-            "temperature_mean": "mean_temperature"
-        }
-    )
 )
 
 
 # --------------------------------------------------
-# COMBINE
+# MULTI-MODEL ENSEMBLE
 # --------------------------------------------------
 
-historical_annual["period"] = "Historical"
-future_annual["period"] = "Projected"
+future_annual = (
+    future_model_annual
+    .groupby("year")
+    .agg(
+        mean_temperature=("temperature_mean", "mean"),
+        min_temperature=("temperature_mean", "min"),
+        max_temperature=("temperature_mean", "max")
+    )
+    .reset_index()
+)
 
-comparison = pd.concat(
-    [
-        historical_annual,
-        future_annual
-    ],
-    ignore_index=True
+
+future_annual["temperature_range"] = (
+    future_annual["max_temperature"]
+    - future_annual["min_temperature"]
 )
 
 
@@ -117,13 +120,11 @@ hist_model.fit(
     y_hist
 )
 
-historical_trend = (
-    hist_model.coef_[0] * 10
-)
+historical_trend = hist_model.coef_[0] * 10
 
 
 # --------------------------------------------------
-# FUTURE TREND
+# FUTURE ENSEMBLE TREND
 # --------------------------------------------------
 
 X_future = future_annual[["year"]]
@@ -136,9 +137,7 @@ future_model.fit(
     y_future
 )
 
-future_trend = (
-    future_model.coef_[0] * 10
-)
+future_trend = future_model.coef_[0] * 10
 
 
 # --------------------------------------------------
@@ -157,6 +156,21 @@ future_average = (
 
 average_difference = (
     future_average - historical_average
+)
+
+
+# --------------------------------------------------
+# MODEL UNCERTAINTY
+# --------------------------------------------------
+
+average_model_range = (
+    future_annual["temperature_range"]
+    .mean()
+)
+
+maximum_model_range = (
+    future_annual["temperature_range"]
+    .max()
 )
 
 
@@ -181,36 +195,44 @@ print(
     future_annual["year"].max()
 )
 
+print(
+    "Climate models:",
+    future["model"].nunique()
+)
+
 
 print("\nHistorical average temperature:")
 print(
     round(historical_average, 2),
-    "Â°C"
+    "°C"
 )
 
-print("\nProjected average temperature:")
+
+print("\nProjected ensemble average temperature:")
 print(
     round(future_average, 2),
-    "Â°C"
+    "°C"
 )
+
 
 print("\nAverage difference:")
 print(
     round(average_difference, 2),
-    "Â°C"
+    "°C"
 )
 
 
 print("\nHistorical trend:")
 print(
     round(historical_trend, 4),
-    "Â°C per decade"
+    "°C per decade"
 )
 
-print("\nProjected trend:")
+
+print("\nProjected ensemble trend:")
 print(
     round(future_trend, 4),
-    "Â°C per decade"
+    "°C per decade"
 )
 
 
@@ -225,20 +247,46 @@ print(
         historical_annual["mean_temperature"].max(),
         2
     ),
-    "Â°C"
+    "°C"
 )
 
 
-print("\nProjected temperature range:")
+print("\nProjected ensemble temperature range:")
 print(
     round(
-        future_annual["mean_temperature"].min(),
+        future_annual["min_temperature"].min(),
         2
     ),
     "to",
     round(
-        future_annual["mean_temperature"].max(),
+        future_annual["max_temperature"].max(),
         2
     ),
-    "Â°C"
+    "°C"
+)
+
+
+print("\nModel Uncertainty:")
+print(
+    "Average annual model range:",
+    round(average_model_range, 2),
+    "°C"
+)
+
+print(
+    "Maximum annual model range:",
+    round(maximum_model_range, 2),
+    "°C"
+)
+
+
+print("\nFirst 5 projected years:")
+print(
+    future_annual.head().to_string(index=False)
+)
+
+
+print("\nLast 5 projected years:")
+print(
+    future_annual.tail().to_string(index=False)
 )
