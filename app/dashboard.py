@@ -19,7 +19,7 @@ else:
     gemini_client = None
 def generate_ai_climate_insight(prompt):
     if gemini_client is None:
-        return "⚠️ Gemini API key not found. Please check .env file."
+        return " Gemini API key not found. Please check .env file."
     
     try:
         response = gemini_client.models.generate_content(
@@ -32,16 +32,16 @@ def generate_ai_climate_insight(prompt):
         error_str = str(e)
 
         if "503" in error_str or "UNAVAILABLE" in error_str:
-            return "⚠️ Gemini is busy. Please try again in a moment."
+            return " Gemini is busy. Please try again in a moment."
 
         elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-            return "⚠️ API quota reached. Try again after some time."
+            return " API quota reached. Try again after some time."
 
         elif "401" in error_str or "API_KEY" in error_str:
-            return "⚠️ API key issue. Please check your .env file."
+            return " API key issue. Please check your .env file."
 
         else:
-            return f"⚠️ Could not generate insight: {error_str}"
+            return f" Could not generate insight: {error_str}"
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "src"))
 
@@ -350,7 +350,7 @@ def climate_impact_by_city(live, hist):
 
 
 # -------------------- DATA --------------------
-st.title("🌍 ClimatePulse")
+st.title(" ClimatePulse")
 st.caption("Climate Data Analytics & AI Intelligence Dashboard")
 
 try:
@@ -364,7 +364,7 @@ except Exception as e:
     st.stop()
 
 selected_city = st.selectbox(
-    "📍 Select City",
+    " Select City",
     CITY_NAMES,
     index=CITY_NAMES.index("Lucknow"),
 )
@@ -386,10 +386,45 @@ a2.metric("PM10", f'{selected["PM10"]:.1f}')
 a3.metric("NO2", f'{selected["NO2"]:.1f}')
 a4.metric("SO2", f'{selected["SO2"]:.1f}')
 a5.metric("O3", f'{selected["O3"]:.1f}')
+# -------------------- METRIC DELTA --------------------
+st.subheader(" Metric Delta vs Historical Monthly Average")
+
+hist_city = historical[historical["City"] == selected_city].copy()
+
+current_month = pd.Timestamp.now().month
+hist_month = hist_city[hist_city["date"].dt.month == current_month]
+
+temp_baseline = hist_month["temp_mean"].mean()
+temp_delta = selected["Temperature"] - temp_baseline
+pm25_delta = selected["PM2.5"] - 75
+pm10_delta = selected["PM10"] - 150
+
+d1, d2, d3 = st.columns(3)
+
+d1.metric(
+    "Temperature",
+    f'{selected["Temperature"]:.1f} °C',
+    f'{temp_delta:+.1f} °C vs monthly average',
+    delta_color="inverse"
+)
+
+d2.metric(
+    "PM2.5",
+    f'{selected["PM2.5"]:.1f}',
+    f'{pm25_delta:+.1f} vs reference',
+    delta_color="inverse"
+)
+
+d3.metric(
+    "PM10",
+    f'{selected["PM10"]:.1f}',
+    f'{pm10_delta:+.1f} vs reference',
+    delta_color="inverse"
+)
 
 st.caption("Live weather and air-quality values are current API observations; values can change between refreshes.")
 st.divider()
-st.header("📋 Daily Climate Report")
+st.header(" Daily Climate Report")
 if st.button("Generate Daily Climate Report"):
 
     with st.spinner("Generating today's climate report..."):
@@ -448,7 +483,7 @@ Important:
         st.markdown(report)
         st.divider()
 st.divider()
-st.header("🔎 Ask ClimatePulse")
+st.header(" Ask ClimatePulse")
 st.caption(
     "Ask questions about the climate and environmental data in natural language."
 )
@@ -523,7 +558,7 @@ Important:
             st.markdown(answer)
 
 # -------------------- HISTORICAL TREND --------------------
-st.header(f"📈 Historical Climate Trend — {selected_city}")
+st.header(f" Historical Climate Trend — {selected_city}")
 
 trend = build_selected_trend(historical, selected_city)
 
@@ -561,7 +596,7 @@ m3.metric(
     f'{sel_sum["95th Percentile Max °C"]:.2f} °C'
 )
 
-st.subheader("🤖 AI Historical Trend Explainer")
+st.subheader(" AI Historical Trend Explainer")
 
 if st.button("Explain this trend"):
 
@@ -607,7 +642,7 @@ Important:
         st.markdown(insight)
 
 # -------------------- EXTREME EVENTS --------------------
-st.header(f"🔥 Extreme Events & Climate Anomalies — {selected_city}")
+st.header(f" Extreme Events & Climate Anomalies — {selected_city}")
 
 anom = anomaly_table(historical)
 
@@ -652,7 +687,7 @@ if len(sel_anom):
         hide_index=True,
     )
 
-    st.subheader("🤖 AI Anomaly Explainer")
+    st.subheader(" AI Anomaly Explainer")
 
     selected_anomaly = st.selectbox(
         "Select an anomaly to explain",
@@ -713,9 +748,166 @@ st.caption(
     "precipitation and wind; they are not automatically "
     "climate-change events."
 )
+# -------------------- CLIMATE RISK CALENDAR --------------------
+st.header(" Climate Risk Calendar")
 
+risk_city = historical[historical["City"] == selected_city].copy()
+
+risk_city["month"] = risk_city["date"].dt.month
+risk_city["month_name"] = risk_city["date"].dt.strftime("%b")
+
+monthly_risk = (
+    risk_city
+    .groupby(["month", "month_name"])
+    .agg(
+        avg_temp=("temp_mean", "mean"),
+        max_temp=("temp_max", "max"),
+        total_rainfall=("precipitation", "sum"),
+    )
+    .reset_index()
+    .sort_values("month")
+)
+def classify_climate_risk(row):
+    max_temp = row["max_temp"]
+
+    if max_temp >= 42:
+        return "🔴 Extreme"
+    elif max_temp >= 38:
+        return "🟠 High"
+    elif max_temp >= 34:
+        return "🟡 Moderate"
+    else:
+        return "🟢 Low"
+
+
+monthly_risk["Risk Level"] = monthly_risk.apply(
+    classify_climate_risk,
+    axis=1
+)
+
+st.dataframe(
+    monthly_risk[
+        [
+            "month_name",
+            "avg_temp",
+            "max_temp",
+            "total_rainfall",
+            "Risk Level",
+        ]
+    ].rename(
+        columns={
+            "month_name": "Month",
+            "avg_temp": "Avg Temperature (°C)",
+            "max_temp": "Maximum Temperature (°C)",
+            "total_rainfall": "Total Rainfall (mm)",
+        }
+    ),
+    use_container_width=True,
+    hide_index=True,
+)
+st.markdown("####  Risk Interpretation")
+
+risk_counts = monthly_risk["Risk Level"].value_counts()
+
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric("🟢 Low Risk Months", risk_counts.get("🟢 Low", 0))
+c2.metric("🟡 Moderate Risk Months", risk_counts.get("🟡 Moderate", 0))
+c3.metric("🟠 High Risk Months", risk_counts.get("🟠 High", 0))
+c4.metric("🔴 Extreme Risk Months", risk_counts.get("🔴 Extreme", 0))
+# -------------------- CLIMATE EVENT DETECTION --------------------
+st.header(" Climate Event Detection + Timeline")
+
+event_city = historical[historical["City"] == selected_city].copy()
+
+# Project-defined heat-event threshold
+heat_threshold = event_city["temp_max"].quantile(0.95)
+
+event_city["heat_day"] = event_city["temp_max"] >= heat_threshold
+
+st.write(
+    f"Heat-event threshold: **{heat_threshold:.1f} °C** "
+    "(95th percentile of historical maximum temperature)"
+)
+# Detect consecutive heat events (minimum 3 days)
+event_city = event_city.sort_values("date").reset_index(drop=True)
+
+event_city["heat_group"] = (
+    event_city["heat_day"].ne(event_city["heat_day"].shift())
+).cumsum()
+
+heat_events = (
+    event_city[event_city["heat_day"]]
+    .groupby("heat_group")
+    .agg(
+        start_date=("date", "min"),
+        end_date=("date", "max"),
+        duration_days=("date", "count"),
+        peak_temperature=("temp_max", "max"),
+    )
+    .reset_index(drop=True)
+)
+
+heat_events = heat_events[
+    heat_events["duration_days"] >= 3
+].sort_values(
+    "peak_temperature",
+    ascending=False
+)
+st.subheader(" Historical Heat Events")
+
+if heat_events.empty:
+    st.info("No heat events of 3 or more consecutive days were detected.")
+else:
+    st.dataframe(
+        heat_events[
+            [
+                "start_date",
+                "end_date",
+                "duration_days",
+                "peak_temperature",
+            ]
+        ].rename(
+            columns={
+                "start_date": "Start Date",
+                "end_date": "End Date",
+                "duration_days": "Duration (Days)",
+                "peak_temperature": "Peak Temperature (°C)",
+            }
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.subheader(" Heat Event Timeline")
+
+if not heat_events.empty:
+    timeline_fig = px.scatter(
+        heat_events,
+        x="start_date",
+        y="peak_temperature",
+        size="duration_days",
+        hover_data=[
+            "start_date",
+            "end_date",
+            "duration_days",
+            "peak_temperature",
+        ],
+        labels={
+            "start_date": "Event Start",
+            "peak_temperature": "Peak Temperature (°C)",
+            "duration_days": "Duration (Days)",
+        },
+        title="Historical Heat Events — Peak Temperature & Duration",
+    )
+
+    timeline_fig.update_layout(
+        xaxis_title="Event Start Date",
+        yaxis_title="Peak Temperature (°C)",
+    )
+
+    st.plotly_chart(timeline_fig, use_container_width=True)
 # -------------------- CLIMATE IMPACT INDEX --------------------
-st.header("🌍 Climate Impact Index")
+st.header(" Climate Impact Index")
 
 impact = climate_impact_by_city(live_raw, historical)
 sel_impact = impact[impact["City"] == selected_city].iloc[0]
@@ -733,7 +925,7 @@ st.caption(
     "It is not an official government or scientific climate-risk index."
 )
 
-st.subheader("🤖 AI Climate Insight")
+st.subheader(" AI Climate Insight")
 
 if st.button("Generate AI Climate Insight"):
 
@@ -771,7 +963,7 @@ Important:
         st.markdown(insight)
 
 # -------------------- ML FORECAST --------------------
-st.header(f"🤖 ML Temperature Forecast — {selected_city}")
+st.header(f" ML Temperature Forecast — {selected_city}")
 
 @st.cache_resource(show_spinner=True)
 def train_city_xgb(city):
@@ -934,7 +1126,7 @@ try:
         f"This is a city-specific XGBoost model trained on {selected_city}'s historical data."
     )
 
-    st.subheader("🤖 AI XGBoost Forecast Explanation")
+    st.subheader(" AI XGBoost Forecast Explanation")
 
     if st.button("Explain this forecast"):
 
@@ -996,7 +1188,7 @@ except Exception as e:
     st.exception(e)
 # -------------------- CITY COMPARISON LAST --------------------
 st.divider()
-st.header("🏙️ City Comparison — All 10 Cities")
+st.header(" City Comparison — All 10 Cities")
 st.caption("Live comparative analytics across all configured cities. Scores are project-defined.")
 
 st.dataframe(
@@ -1037,7 +1229,7 @@ fig = px.bar(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("📊 Historical & Future City Summary")
+st.subheader(" Historical & Future City Summary")
 
 fv = future_summary(historical, future)
 
@@ -1078,7 +1270,7 @@ st.plotly_chart(
     fig,
     use_container_width=True,
 )
-st.subheader("🤖 AI City Comparison Narrative")
+st.subheader(" AI City Comparison Narrative")
 
 if st.button("Explain City Comparison"):
 
@@ -1144,3 +1336,341 @@ Important:
         insight = generate_ai_climate_insight(prompt)
 
         st.markdown(insight)
+        # -------------------- WHAT-IF SCENARIO SIMULATOR --------------------
+st.header(" What-if Climate Scenario Simulator")
+
+st.caption(
+    "Adjust the environmental conditions to explore how a hypothetical "
+    "scenario could change the project-defined climate impact score."
+)
+
+s1, s2, s3 = st.columns(3)
+
+temp_change = s1.slider(
+    " Temperature Change (°C)",
+    min_value=-3.0,
+    max_value=5.0,
+    value=0.0,
+    step=0.5,
+)
+
+pm25_change = s2.slider(
+    " PM2.5 Change (%)",
+    min_value=-50,
+    max_value=100,
+    value=0,
+    step=10,
+)
+
+rainfall_change = s3.slider(
+    " Rainfall Change (%)",
+    min_value=-50,
+    max_value=50,
+    value=0,
+    step=10,
+)
+# Scenario calculation
+
+scenario_temp = selected["Temperature"] + temp_change
+scenario_pm25 = selected["PM2.5"] * (1 + pm25_change / 100)
+
+base_rainfall = historical[
+    historical["City"] == selected_city
+]["precipitation"].mean()
+
+scenario_rainfall = base_rainfall * (1 + rainfall_change / 100)
+
+scenario_temp_impact = temperature_impact(scenario_temp)
+
+scenario_pm25_impact = min(
+    scenario_pm25 / 75 * 100,
+    100
+)
+
+scenario_rainfall_impact = min(
+    abs(scenario_rainfall - base_rainfall)
+    / max(base_rainfall, 1) * 100,
+    100
+)
+
+scenario_index = round(
+    scenario_temp_impact * 0.40
+    + scenario_pm25_impact * 0.35
+    + scenario_rainfall_impact * 0.25,
+    2
+)
+
+current_index = round(
+    temperature_impact(selected["Temperature"]) * 0.40
+    + min(selected["PM2.5"] / 75 * 100, 100) * 0.35
+    + 0 * 0.25,
+    2
+)
+
+st.subheader(" Scenario Impact")
+
+r1, r2, r3 = st.columns(3)
+
+r1.metric(
+    "Scenario Temperature",
+    f"{scenario_temp:.1f} °C",
+    f"{temp_change:+.1f} °C"
+)
+
+r2.metric(
+    "Scenario PM2.5",
+    f"{scenario_pm25:.1f}",
+    f"{pm25_change:+.0f}%"
+)
+
+r3.metric(
+    "Scenario Impact Index",
+    f"{scenario_index:.1f}",
+    f"{scenario_index - current_index:+.1f}",
+    delta_color="inverse"
+)
+st.markdown("###  Scenario Interpretation")
+
+impact_change = scenario_index - current_index
+
+if impact_change > 5:
+    impact_message = "This scenario indicates a substantial increase in the project-defined climate impact."
+elif impact_change > 0:
+    impact_message = "This scenario indicates a moderate increase in the project-defined climate impact."
+elif impact_change < -5:
+    impact_message = "This scenario indicates a substantial reduction in the project-defined climate impact."
+elif impact_change < 0:
+    impact_message = "This scenario indicates a moderate reduction in the project-defined climate impact."
+else:
+    impact_message = "This scenario produces little change in the project-defined climate impact."
+
+st.info(
+    f"Under this hypothetical scenario, the temperature changes by "
+    f"{temp_change:+.1f}°C, PM2.5 changes by {pm25_change:+.0f}%, "
+    f"and rainfall changes by {rainfall_change:+.0f}%. "
+    f"The calculated impact index changes by {impact_change:+.1f} points. "
+    f"{impact_message}"
+)
+
+st.caption(
+    "This is a project-defined what-if simulation, not a climate forecast "
+    "or official risk assessment."
+)
+st.markdown("###  Recommended Actions")
+
+recommendations = []
+
+if temp_change > 0:
+    recommendations.append(
+        " Heat preparedness: increase heat-alert monitoring, review cooling "
+        "requirements, and plan measures for vulnerable populations."
+    )
+
+if pm25_change > 0:
+    recommendations.append(
+        " Air-quality response: strengthen PM2.5 monitoring and consider "
+        "traffic, dust and emission-control measures during high-pollution periods."
+    )
+
+if rainfall_change < 0:
+    recommendations.append(
+        " Water planning: prepare for reduced rainfall through water "
+        "conservation and drought-readiness measures."
+    )
+
+if rainfall_change > 0:
+    recommendations.append(
+        " Rainfall preparedness: review drainage, water-storage and "
+        "flood-management capacity for periods of increased rainfall."
+    )
+
+if not recommendations:
+    recommendations.append(
+        " No major intervention is suggested for the selected baseline scenario. "
+        "Continue routine environmental monitoring."
+    )
+
+for recommendation in recommendations:
+    st.write(recommendation)
+    # -------------------- ACTIONABLE CLIMATE STRATEGY ADVISOR --------------------
+st.header("Actionable Climate Strategy Advisor")
+
+st.caption(
+    "Translate climate indicators into practical business and operational "
+    "actions using the available environmental data."
+)
+
+st.markdown("### Generate Business Risk Strategy")
+
+if st.button("Generate Business Risk Strategy"):
+
+    # Prepare strategy data
+    strategy_hist = historical[
+        historical["City"] == selected_city
+    ].copy()
+
+    strategy_hist["month"] = strategy_hist["date"].dt.month
+
+    current_month = pd.Timestamp.now().month
+
+    monthly_hist = strategy_hist[
+        strategy_hist["month"] == current_month
+    ]
+
+    monthly_temp_baseline = monthly_hist["temp_mean"].mean()
+
+    temperature_delta = (
+        selected["Temperature"] - monthly_temp_baseline
+    )
+
+    # Historical heat threshold
+    heat_threshold = strategy_hist["temp_max"].quantile(0.95)
+
+    strategy_hist["heat_day"] = (
+        strategy_hist["temp_max"] >= heat_threshold
+    )
+
+    strategy_hist["heat_group"] = (
+        strategy_hist["heat_day"]
+        .ne(strategy_hist["heat_day"].shift())
+        .cumsum()
+    )
+
+    strategy_heat_events = (
+        strategy_hist[strategy_hist["heat_day"]]
+        .groupby("heat_group")
+        .agg(
+            start_date=("date", "min"),
+            end_date=("date", "max"),
+            duration_days=("date", "count"),
+            peak_temperature=("temp_max", "max"),
+        )
+        .reset_index(drop=True)
+    )
+
+    strategy_heat_events = strategy_heat_events[
+        strategy_heat_events["duration_days"] >= 3
+    ]
+
+    heat_event_count = len(strategy_heat_events)
+
+    # Historical temperature baseline
+    hist_mean = strategy_hist["temp_mean"].mean()
+
+    # Future projection
+    future_city = future[
+        future["City"] == selected_city
+    ].copy()
+
+    if not future_city.empty:
+        future_mean = future_city["temp_mean"].mean()
+        future_change = future_mean - hist_mean
+    else:
+        future_mean = hist_mean
+        future_change = 0.0
+
+    with st.spinner("Generating business strategy..."):
+
+        strategy_prompt = f"""
+You are a Climate Business Analyst.
+
+Analyze the following environmental intelligence for {selected_city}.
+
+Current temperature: {selected["Temperature"]:.1f} °C
+Historical monthly temperature average: {monthly_temp_baseline:.1f} °C
+Temperature anomaly: {temperature_delta:+.1f} °C
+PM2.5: {selected["PM2.5"]:.1f}
+PM10: {selected["PM10"]:.1f}
+Historical heat events lasting at least 3 consecutive days: {heat_event_count}
+Historical 95th percentile maximum temperature: {heat_threshold:.1f} °C
+Historical mean temperature: {hist_mean:.2f} °C
+Future projected mean temperature: {future_mean:.2f} °C
+Future vs historical mean difference: {future_change:+.2f} °C
+
+Generate a business-oriented climate strategy table.
+
+Return ONLY a Markdown table with exactly these six columns:
+
+| Priority | Business Area | Evidence | Business Impact | Recommended Action | KPI to Monitor |
+|---|---|---|---|---|---|
+
+Rules:
+- Priority must be exactly High, Medium, or Monitor.
+- Do not use Critical or any other priority label.
+- Use only the environmental data provided above as evidence.
+- Do not invent measurements or statistics.
+- Keep recommendations practical and business-oriented.
+- Business Impact should describe possible operational implications,
+  not guaranteed outcomes.
+- Recommended Action should be realistic and proportionate to the evidence.
+- Do not assume that a specific technology, medical intervention,
+  infrastructure investment, or financial decision is required unless
+  supported by the provided data.
+- KPI to Monitor should identify measurable indicators relevant to the issue.
+- Do not provide an introduction, conclusion, or text outside the table.
+- Do not use emojis.
+"""
+
+        strategy_result = generate_ai_climate_insight(
+            strategy_prompt
+        )
+
+        st.markdown(strategy_result)
+
+        st.session_state["last_strategy_table"] = strategy_result
+        # -------------------- DOWNLOAD STRATEGY REPORT --------------------
+
+if "last_strategy_table" in st.session_state:
+
+    report_text = f"""
+# Climate Strategy Report
+
+## City
+{selected_city}
+
+## Current Environmental Snapshot
+
+- Current Temperature: {selected["Temperature"]:.1f} °C
+- PM2.5: {selected["PM2.5"]:.1f}
+- PM10: {selected["PM10"]:.1f}
+- Humidity: {selected["Humidity"]:.1f}%
+- Feels Like Temperature: {selected["Feels Like"]:.1f} °C
+
+## Historical Climate Evidence
+
+- Historical Monthly Temperature Average: {monthly_temp_baseline:.1f} °C
+- Current Temperature Anomaly: {temperature_delta:+.1f} °C
+- Historical Heat Events (3+ consecutive days): {heat_event_count}
+- Historical 95th Percentile Maximum Temperature: {heat_threshold:.1f} °C
+- Historical Mean Temperature: {hist_mean:.2f} °C
+
+## Future Climate Projection
+
+- Projected Mean Temperature: {future_mean:.2f} °C
+- Future vs Historical Mean Difference: {future_change:+.2f} °C
+
+## Business Risk Strategy
+
+{st.session_state["last_strategy_table"]}
+
+## Methodology Note
+
+This report translates the environmental indicators available in ClimatePulse
+into business-oriented risk considerations and monitoring actions.
+
+Climate thresholds, impact scores and recommendations used by ClimatePulse
+are project-defined and should not be interpreted as official climate-risk
+assessments.
+
+Environmental observations and projections describe conditions and modeled
+patterns; they do not by themselves establish causation for individual events.
+
+Generated by ClimatePulse.
+"""
+
+    st.download_button(
+        label="Download Strategy Report",
+        data=report_text,
+        file_name=f"{selected_city}_climate_strategy_report.md",
+        mime="text/markdown",
+    )
