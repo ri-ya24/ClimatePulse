@@ -63,10 +63,11 @@ CITIES = {
     "Ahmedabad": (23.0225, 72.5714),
     "Pune": (18.5204, 73.8567),
 }
-
 CITY_NAMES = list(CITIES.keys())
+
 HIST_START = "1990-01-01"
 HIST_END = "2025-12-31"
+
 FUTURE_START = "2026-01-01"
 FUTURE_END = "2049-12-31"
 
@@ -128,85 +129,55 @@ def get_live_city_data():
     return pd.DataFrame(rows)
 
 
-@st.cache_data(ttl=86400, show_spinner=True)
+@st.cache_data(show_spinner=True)
 def get_historical_all_cities():
-    lats, lons = _city_coordinates()
-    url = "https://archive-api.open-meteo.com/v1/archive"
-    params = {
-        "latitude": lats,
-        "longitude": lons,
-        "start_date": HIST_START,
-        "end_date": HIST_END,
-        "daily": "temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max",
-        "timezone": "Asia/Kolkata",
-        "temperature_unit": "celsius",
-        "precipitation_unit": "mm",
-        "wind_speed_unit": "kmh",
-    }
-    r = requests.get(url, params=params, timeout=180)
-    r.raise_for_status()
-    data = r.json()
-    if isinstance(data, dict):
-        data = [data]
+    csv_path = ROOT / "historical_weather.csv"
 
-    frames = []
-    for i, city in enumerate(CITY_NAMES):
-        daily = data[i]["daily"]
-        df = pd.DataFrame(daily)
-        df["date"] = pd.to_datetime(df["time"])
-        df["City"] = city
-        df = df.rename(columns={
-            "temperature_2m_max": "temp_max",
-            "temperature_2m_min": "temp_min",
-            "temperature_2m_mean": "temp_mean",
-            "precipitation_sum": "precipitation",
-            "wind_speed_10m_max": "wind_max",
-        })
-        frames.append(df[[
-            "City", "date", "temp_max", "temp_min",
-            "temp_mean", "precipitation", "wind_max"
-        ]])
-    return pd.concat(frames, ignore_index=True)
+    df = pd.read_csv(csv_path)
+    df["date"] = pd.to_datetime(df["date"])
 
+    df = df.rename(columns={
+        "temperature_max": "temp_max",
+        "temperature_min": "temp_min",
+        "temperature_mean": "temp_mean",
+        "wind_speed_max": "wind_max",
+    })
 
-@st.cache_data(ttl=86400, show_spinner=True)
+    df["City"] = "Lucknow"
+
+    return df[[
+        "City",
+        "date",
+        "temp_max",
+        "temp_min",
+        "temp_mean",
+        "precipitation",
+        "wind_max",
+    ]]
+
+@st.cache_data(show_spinner=True)
 def get_future_all_cities():
-    lats, lons = _city_coordinates()
-    url = "https://climate-api.open-meteo.com/v1/climate"
-    params = {
-        "latitude": lats,
-        "longitude": lons,
-        "start_date": FUTURE_START,
-        "end_date": FUTURE_END,
-        "models": "EC_Earth3P_HR",
-        "daily": "temperature_2m_mean,temperature_2m_max,temperature_2m_min,precipitation_sum",
-        "timezone": "Asia/Kolkata",
-        "temperature_unit": "celsius",
-        "precipitation_unit": "mm",
-    }
-    r = requests.get(url, params=params, timeout=180)
-    r.raise_for_status()
-    data = r.json()
-    if isinstance(data, dict):
-        data = [data]
+    csv_path = ROOT / "climate_projection.csv"
 
-    frames = []
-    for i, city in enumerate(CITY_NAMES):
-        daily = data[i]["daily"]
-        df = pd.DataFrame(daily)
-        df["date"] = pd.to_datetime(df["time"])
-        df["City"] = city
-        df = df.rename(columns={
-            "temperature_2m_mean": "temp_mean",
-            "temperature_2m_max": "temp_max",
-            "temperature_2m_min": "temp_min",
-            "precipitation_sum": "precipitation",
-        })
-        frames.append(df[[
-            "City", "date", "temp_mean", "temp_max",
-            "temp_min", "precipitation"
-        ]])
-    return pd.concat(frames, ignore_index=True)
+    df = pd.read_csv(csv_path)
+    df["date"] = pd.to_datetime(df["date"])
+
+    df = df.rename(columns={
+        "temperature_mean": "temp_mean",
+        "temperature_max": "temp_max",
+        "temperature_min": "temp_min",
+    })
+
+    df["City"] = "Lucknow"
+
+    return df[[
+        "City",
+        "date",
+        "temp_mean",
+        "temp_max",
+        "temp_min",
+        "precipitation",
+    ]]
 
 
 def air_quality_score(row):
@@ -1255,21 +1226,7 @@ st.dataframe(
     hide_index=True,
 )
 
-fig = px.bar(
-    city_summary.sort_values("Average Difference"),
-    x="Average Difference",
-    y="City",
-    orientation="h",
-    title="Historical-to-Projected Average Temperature Difference",
-    labels={
-        "Average Difference": "Projected − Historical (°C)"
-    },
-)
 
-st.plotly_chart(
-    fig,
-    use_container_width=True,
-)
 st.subheader(" AI City Comparison Narrative")
 
 if st.button("Explain City Comparison"):
