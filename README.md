@@ -1,6 +1,6 @@
 # ClimatePulse — Live Climate Impact Intelligence System
 
-##LIVE DASHBOARD: https://climatepulse-in.streamlit.app/
+**Live Demo:** https://climatepulse-in.streamlit.app/
 
 ClimatePulse is an AI-powered climate intelligence dashboard that combines live environmental data, historical climate analysis, machine learning, future climate projections, and Generative AI into a single interactive application.
 
