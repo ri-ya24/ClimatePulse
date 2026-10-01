@@ -18,7 +18,6 @@ if GEMINI_API_KEY:
 else:
     gemini_client = None
 def generate_ai_climate_insight(prompt):
-    # ✅ Check client exists
     if gemini_client is None:
         return "⚠️ Gemini API key not found. Please check .env file."
     
@@ -374,7 +373,6 @@ selected = live[live["City"] == selected_city].iloc[0]
 
 # -------------------- SELECTED CITY LIVE --------------------
 st.header(f"🌤️ Live Environmental Overview — {selected_city}")
-
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Temperature", f'{selected["Temperature"]:.1f} °C')
 c2.metric("Feels Like", f'{selected["Feels Like"]:.1f} °C')
@@ -390,11 +388,145 @@ a4.metric("SO2", f'{selected["SO2"]:.1f}')
 a5.metric("O3", f'{selected["O3"]:.1f}')
 
 st.caption("Live weather and air-quality values are current API observations; values can change between refreshes.")
+st.divider()
+st.header("📋 Daily Climate Report")
+if st.button("Generate Daily Climate Report"):
+
+    with st.spinner("Generating today's climate report..."):
+
+        prompt = f"""
+You are a climate data analyst generating a daily environmental
+report for a climate intelligence dashboard.
+
+City: {selected_city}
+
+Today's live environmental observations:
+
+Temperature: {selected["Temperature"]:.1f} °C
+Feels Like: {selected["Feels Like"]:.1f} °C
+Humidity: {selected["Humidity"]:.0f} %
+Wind Speed: {selected["Wind Speed"]:.1f} km/h
+Precipitation: {selected["Precipitation"]:.1f} mm
+
+Air quality observations:
+
+PM2.5: {selected["PM2.5"]:.1f}
+PM10: {selected["PM10"]:.1f}
+NO2: {selected["NO2"]:.1f}
+SO2: {selected["SO2"]:.1f}
+O3: {selected["O3"]:.1f}
+
+Project-defined impact indicators:
+
+Air Quality Impact: {selected["Air Quality Impact"]:.2f}
+Temperature Impact: {selected["Temperature Impact"]:.2f}
+Overall Impact: {selected["Overall Impact"]:.2f}
+
+Write a concise Daily Climate Report for the dashboard.
+
+Cover:
+1. Overall environmental conditions today.
+2. Temperature and weather conditions.
+3. Air-quality conditions.
+4. Which environmental factor appears relatively more significant
+   based on the provided project-defined scores.
+5. A short overall interpretation.
+
+Important:
+- Use only the provided values.
+- Do not invent or estimate any data.
+- Overall Impact, Air Quality Impact and Temperature Impact are
+  project-defined indicators.
+- Do not describe them as official AQI or government scores.
+- Do not claim that today's conditions prove climate change.
+- Clearly distinguish live observations from interpretation.
+- Keep the report concise and professional.
+"""
+
+        report = generate_ai_climate_insight(prompt)
+
+        st.markdown(report)
+        st.divider()
+st.divider()
+st.header("🔎 Ask ClimatePulse")
+st.caption(
+    "Ask questions about the climate and environmental data in natural language."
+)
+
+user_query = st.text_input(
+    "Ask a question about the climate data:",
+    placeholder="e.g. Why is Lucknow's impact score higher than Mumbai?"
+)
+
+if st.button("Ask ClimatePulse"):
+    if user_query.strip():
+
+        with st.spinner("Analysing ClimatePulse data..."):
+
+            climate_data = live[
+                [
+                    "City",
+                    "Temperature",
+                    "Feels Like",
+                    "Humidity",
+                    "Wind Speed",
+                    "Precipitation",
+                    "PM2.5",
+                    "PM10",
+                    "NO2",
+                    "SO2",
+                    "O3",
+                    "Air Quality Impact",
+                    "Temperature Impact",
+                    "Overall Impact",
+                ]
+            ].copy()
+
+            climate_data_text = climate_data.to_string(
+                index=False
+            )
+
+            st.write("Your question:", user_query)
+
+            prompt = f"""
+You are the Natural Language Query assistant for ClimatePulse,
+a climate data analytics dashboard.
+
+The user asked:
+
+{user_query}
+
+Here is the current live environmental data available
+from ClimatePulse:
+
+{climate_data_text}
+
+Answer the user's question using only the data provided.
+
+Important:
+- Use only the provided ClimatePulse data.
+- Do not invent values.
+- Do not assume missing information.
+- If the question compares cities, use the actual values
+  provided for those cities.
+- Explain differences using relevant component scores
+  such as Air Quality Impact, Temperature Impact,
+  and Overall Impact.
+- The impact scores are project-defined indicators,
+  not official government or scientific rankings.
+- Do not claim that a single day's data proves climate change.
+- Keep the answer clear, concise and easy to understand.
+"""
+
+            answer = generate_ai_climate_insight(prompt)
+
+            st.markdown(answer)
 
 # -------------------- HISTORICAL TREND --------------------
 st.header(f"📈 Historical Climate Trend — {selected_city}")
 
 trend = build_selected_trend(historical, selected_city)
+
 fig = px.scatter(
     trend,
     x="Year",
@@ -403,15 +535,76 @@ fig = px.scatter(
     labels={"temp_mean": "Annual Mean Temperature (°C)"},
     title=f"Annual Mean Temperature Trend — {selected_city}",
 )
+
 fig.update_traces(marker_size=8)
+
 st.plotly_chart(fig, use_container_width=True)
 
 summary = historical_city_summary(historical)
+
 sel_sum = summary[summary["City"] == selected_city].iloc[0]
+
 m1, m2, m3 = st.columns(3)
-m1.metric("Historical Average", f'{sel_sum["Historical Average"]:.2f} °C')
-m2.metric("Trend", f'{sel_sum["Historical Trend °C/decade"]:.3f} °C/decade')
-m3.metric("95th Percentile Max", f'{sel_sum["95th Percentile Max °C"]:.2f} °C')
+
+m1.metric(
+    "Historical Average",
+    f'{sel_sum["Historical Average"]:.2f} °C'
+)
+
+m2.metric(
+    "Trend",
+    f'{sel_sum["Historical Trend °C/decade"]:.3f} °C/decade'
+)
+
+m3.metric(
+    "95th Percentile Max",
+    f'{sel_sum["95th Percentile Max °C"]:.2f} °C'
+)
+
+st.subheader("🤖 AI Historical Trend Explainer")
+
+if st.button("Explain this trend"):
+
+    with st.spinner("Analysing historical climate trend..."):
+
+        prompt = f"""
+You are a climate data analyst explaining a historical
+temperature trend shown in a climate dashboard.
+
+City: {selected_city}
+
+Historical average temperature:
+{sel_sum["Historical Average"]:.2f} °C
+
+Historical temperature trend:
+{sel_sum["Historical Trend °C/decade"]:.3f} °C per decade
+
+95th percentile of maximum temperature:
+{sel_sum["95th Percentile Max °C"]:.2f} °C
+
+Explain this trend in simple language.
+
+Cover:
+1. What the historical average represents.
+2. What the temperature trend per decade means.
+3. Whether the trend indicates warming or cooling based only
+   on the value provided.
+4. What the 95th percentile tells us about unusually hot days.
+5. What this trend means in the context of long-term climate
+   observations.
+
+Important:
+- Use only the values provided.
+- Do not invent data.
+- Do not claim that this trend alone proves climate change.
+- Clearly distinguish a historical statistical trend from
+  attribution to climate change.
+- Keep the explanation concise and suitable for a dashboard.
+"""
+
+        insight = generate_ai_climate_insight(prompt)
+
+        st.markdown(insight)
 
 # -------------------- EXTREME EVENTS --------------------
 st.header(f"🔥 Extreme Events & Climate Anomalies — {selected_city}")
@@ -582,19 +775,31 @@ st.header(f"🤖 ML Temperature Forecast — {selected_city}")
 
 @st.cache_resource(show_spinner=True)
 def train_city_xgb(city):
+
     import xgboost as xgb
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-    df = historical[historical["City"] == city].sort_values("date").copy()
+    # Historical data is used to train the model.
+    df = (
+        historical[historical["City"] == city]
+        .sort_values("date")
+        .copy()
+    )
 
-    # Same feature engineering concept used for the original Lucknow model.
+    # Feature engineering.
     df["temperature_lag_1"] = df["temp_mean"].shift(1)
     df["temperature_lag_2"] = df["temp_mean"].shift(2)
     df["temperature_lag_7"] = df["temp_mean"].shift(7)
-    df["temperature_rolling_7"] = df["temp_mean"].rolling(7).mean()
-    df["temperature_rolling_30"] = df["temp_mean"].rolling(30).mean()
 
-    # Next-day temperature is the prediction target.
+    df["temperature_rolling_7"] = (
+        df["temp_mean"].rolling(7).mean()
+    )
+
+    df["temperature_rolling_30"] = (
+        df["temp_mean"].rolling(30).mean()
+    )
+
+    # Target = next day's temperature.
     df["target"] = df["temp_mean"].shift(-1)
 
     feature_cols = [
@@ -605,9 +810,13 @@ def train_city_xgb(city):
         "temperature_rolling_30",
     ]
 
-    model_df = df.dropna(subset=feature_cols + ["target"]).copy()
+    model_df = df.dropna(
+        subset=feature_cols + ["target"]
+    ).copy()
 
+    # Time-based train/test split.
     split = int(len(model_df) * 0.80)
+
     train = model_df.iloc[:split]
     test = model_df.iloc[split:]
 
@@ -622,33 +831,99 @@ def train_city_xgb(city):
         n_jobs=4,
     )
 
-    model.fit(train[feature_cols], train["target"])
+    model.fit(
+        train[feature_cols],
+        train["target"],
+    )
 
+    # Model evaluation.
     pred = model.predict(test[feature_cols])
 
-    mae = mean_absolute_error(test["target"], pred)
-    rmse = np.sqrt(mean_squared_error(test["target"], pred))
-    r2 = r2_score(test["target"], pred)
+    mae = mean_absolute_error(
+        test["target"],
+        pred,
+    )
 
-    # Build the next-day input from the latest available observation.
+    rmse = np.sqrt(
+        mean_squared_error(
+            test["target"],
+            pred,
+        )
+    )
+
+    r2 = r2_score(
+        test["target"],
+        pred,
+    )
+
+    # --------------------------------------------------
+    # CURRENT LIVE TEMPERATURE
+    # --------------------------------------------------
+
+    current_live_temp = float(
+        live_raw.loc[
+            live_raw["City"] == city,
+            "Temperature"
+        ].iloc[0]
+    )
+
+    # --------------------------------------------------
+    # BUILD TOMORROW'S FORECAST INPUT
+    # --------------------------------------------------
+
     latest = pd.DataFrame({
-        "temperature_lag_1": [df["temp_mean"].iloc[-1]],
-        "temperature_lag_2": [df["temp_mean"].iloc[-2]],
-        "temperature_lag_7": [df["temp_mean"].iloc[-7]],
-        "temperature_rolling_7": [df["temp_mean"].iloc[-7:].mean()],
-        "temperature_rolling_30": [df["temp_mean"].iloc[-30:].mean()],
+        "temperature_lag_1": [
+            current_live_temp
+        ],
+
+        "temperature_lag_2": [
+            df["temp_mean"].iloc[-1]
+        ],
+
+        "temperature_lag_7": [
+            df["temp_mean"].iloc[-7]
+        ],
+
+        "temperature_rolling_7": [
+            pd.concat([
+                df["temp_mean"].iloc[-6:],
+                pd.Series([current_live_temp])
+            ]).mean()
+        ],
+
+        "temperature_rolling_30": [
+            pd.concat([
+                df["temp_mean"].iloc[-29:],
+                pd.Series([current_live_temp])
+            ]).mean()
+        ],
     })
 
-    next_prediction = float(model.predict(latest)[0])
-    next_day = df["date"].max() + pd.Timedelta(days=1)
+    # Generate tomorrow's prediction.
+    next_prediction = float(
+        model.predict(latest)[0]
+    )
 
-    return next_prediction, next_day, mae, rmse, r2
+    # Tomorrow based on the current date.
+    next_day = (
+        pd.Timestamp.now().normalize()
+        + pd.Timedelta(days=1)
+    )
 
+    return (
+        next_prediction,
+        next_day,
+        mae,
+        rmse,
+        r2,
+        latest.iloc[0].to_dict(),
+    )
 
 try:
-    prediction, forecast_date, city_mae, city_rmse, city_r2 = train_city_xgb(selected_city)
+    prediction, forecast_date, city_mae, city_rmse, city_r2, forecast_features = train_city_xgb(selected_city)
 
     p1, p2, p3, p4 = st.columns(4)
+
     p1.metric("Next-Day Forecast", f"{prediction:.2f} °C")
     p2.metric("MAE", f"{city_mae:.2f} °C")
     p3.metric("RMSE", f"{city_rmse:.2f} °C")
@@ -658,10 +933,67 @@ try:
         f"Forecast date: {forecast_date.date()}. "
         f"This is a city-specific XGBoost model trained on {selected_city}'s historical data."
     )
+
+    st.subheader("🤖 AI XGBoost Forecast Explanation")
+
+    if st.button("Explain this forecast"):
+
+        with st.spinner("Analysing XGBoost forecast..."):
+
+            prompt = f"""
+You are a climate data analyst explaining a machine-learning
+temperature forecast from a climate dashboard.
+
+City: {selected_city}
+Forecast date: {forecast_date.date()}
+
+Predicted temperature: {prediction:.2f} °C
+
+XGBoost model evaluation:
+MAE: {city_mae:.2f} °C
+RMSE: {city_rmse:.2f} °C
+R²: {city_r2:.3f}
+
+Features used for this next-day prediction:
+Previous day temperature:
+{forecast_features["temperature_lag_1"]:.2f} °C
+
+Temperature two days earlier:
+{forecast_features["temperature_lag_2"]:.2f} °C
+
+Temperature seven days earlier:
+{forecast_features["temperature_lag_7"]:.2f} °C
+
+7-day rolling average:
+{forecast_features["temperature_rolling_7"]:.2f} °C
+
+30-day rolling average:
+{forecast_features["temperature_rolling_30"]:.2f} °C
+
+Explain this forecast in simple language.
+
+Cover:
+1. What temperature the model predicts.
+2. How recent temperature patterns are reflected in the prediction.
+3. What the 7-day and 30-day rolling averages tell us.
+4. Briefly explain MAE, RMSE and R² and what the provided values indicate about model performance.
+
+Important:
+- Do not invent any data.
+- Do not perform a new prediction.
+- The XGBoost model has already generated the prediction.
+- Gemini is only explaining the model output.
+- Do not claim that this forecast proves climate change.
+- Keep the explanation concise and suitable for a dashboard.
+"""
+
+            insight = generate_ai_climate_insight(prompt)
+
+            st.markdown(insight)
+
 except Exception as e:
     st.warning(f"Could not train the XGBoost model for {selected_city}.")
     st.exception(e)
-
 # -------------------- CITY COMPARISON LAST --------------------
 st.divider()
 st.header("🏙️ City Comparison — All 10 Cities")
@@ -746,3 +1078,69 @@ st.plotly_chart(
     fig,
     use_container_width=True,
 )
+st.subheader("🤖 AI City Comparison Narrative")
+
+if st.button("Explain City Comparison"):
+
+    with st.spinner("Analysing city comparison..."):
+
+        comparison_data = live[
+            [
+                "City",
+                "Temperature",
+                "Feels Like",
+                "Humidity",
+                "PM2.5",
+                "PM10",
+                "Air Quality Impact",
+                "Temperature Impact",
+                "Overall Impact",
+            ]
+        ].sort_values(
+            "Overall Impact",
+            ascending=False
+        )
+
+        comparison_text = comparison_data.to_string(
+            index=False
+        )
+
+        prompt = f"""
+You are a climate data analyst explaining a
+multi-city environmental comparison.
+
+The dashboard contains live environmental data
+for 10 Indian cities.
+
+Here is the data calculated by Python:
+
+{comparison_text}
+
+Explain the comparison in simple language.
+
+Cover:
+1. Which cities have relatively higher and lower
+   overall impact scores based on the provided data.
+2. How temperature and air-quality conditions differ
+   across the cities.
+3. Which cities show relatively higher air-quality
+   impact and which show relatively higher
+   temperature impact.
+4. Mention any notable patterns visible in the data.
+
+Important:
+- Use only the values provided.
+- Do not invent or estimate any values.
+- Do not calculate a new environmental index.
+- The Overall Impact score is project-defined.
+- Do not describe the score as an official AQI,
+  government ranking, or scientific climate-risk score.
+- Do not claim that a single day's comparison proves
+  long-term climate change.
+- Keep the explanation concise and suitable for a
+  dashboard.
+"""
+
+        insight = generate_ai_climate_insight(prompt)
+
+        st.markdown(insight)
