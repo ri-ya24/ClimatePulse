@@ -11,16 +11,25 @@ import os
 from google import genai
 
 load_dotenv()
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    try:
+        GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+    except Exception:
+        GEMINI_API_KEY = None
 
 if GEMINI_API_KEY:
     gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 else:
     gemini_client = None
+
+
 def generate_ai_climate_insight(prompt):
     if gemini_client is None:
-        return " Gemini API key not found. Please check .env file."
-    
+        return "Gemini API key not found. Please check Streamlit Secrets."
+
     try:
         response = gemini_client.models.generate_content(
             model="gemini-3.5-flash-lite",
@@ -32,16 +41,16 @@ def generate_ai_climate_insight(prompt):
         error_str = str(e)
 
         if "503" in error_str or "UNAVAILABLE" in error_str:
-            return " Gemini is busy. Please try again in a moment."
+            return "Gemini is busy. Please try again in a moment."
 
         elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-            return " API quota reached. Try again after some time."
+            return "API quota reached. Try again after some time."
 
         elif "401" in error_str or "API_KEY" in error_str:
-            return " API key issue. Please check your .env file."
+            return "API key issue. Please check Streamlit Secrets."
 
         else:
-            return f" Could not generate insight: {error_str}"
+            return f"Could not generate insight: {error_str}"
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "src"))
 
