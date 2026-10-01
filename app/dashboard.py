@@ -137,22 +137,12 @@ def get_live_city_data():
         })
     return pd.DataFrame(rows)
 
-
 @st.cache_data(show_spinner=True)
 def get_historical_all_cities():
-    csv_path = ROOT / "historical_weather.csv"
+    csv_path = ROOT / "historical_weather_all_cities.csv"
 
     df = pd.read_csv(csv_path)
     df["date"] = pd.to_datetime(df["date"])
-
-    df = df.rename(columns={
-        "temperature_max": "temp_max",
-        "temperature_min": "temp_min",
-        "temperature_mean": "temp_mean",
-        "wind_speed_max": "wind_max",
-    })
-
-    df["City"] = "Lucknow"
 
     return df[[
         "City",
@@ -166,18 +156,10 @@ def get_historical_all_cities():
 
 @st.cache_data(show_spinner=True)
 def get_future_all_cities():
-    csv_path = ROOT / "climate_projection.csv"
+    csv_path = ROOT / "climate_projection_all_cities.csv"
 
     df = pd.read_csv(csv_path)
     df["date"] = pd.to_datetime(df["date"])
-
-    df = df.rename(columns={
-        "temperature_mean": "temp_mean",
-        "temperature_max": "temp_max",
-        "temperature_min": "temp_min",
-    })
-
-    df["City"] = "Lucknow"
 
     return df[[
         "City",
@@ -557,7 +539,10 @@ st.plotly_chart(fig, use_container_width=True)
 
 summary = historical_city_summary(historical)
 
-sel_sum = summary[summary["City"] == selected_city].iloc[0]
+if selected_city in summary["City"].values:
+    sel_sum = summary[summary["City"] == selected_city].iloc[0]
+else:
+    sel_sum = summary[summary["City"] == "Lucknow"].iloc[0]
 
 m1, m2, m3 = st.columns(3)
 
